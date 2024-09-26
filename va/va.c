@@ -674,10 +674,6 @@ static VAStatus va_new_opendriver(VADisplay dpy)
     const char *driver_name_env;
     VADriverContextP ctx;
 
-    /* XXX: Temporary dummy return, until all platforms are converted */
-    if (!pDisplayContext->vaGetDriverNames)
-        return VA_STATUS_ERROR_INVALID_PARAMETER;
-
     /* XXX: The order is bonkers - env var should take highest priority, then
      * override (which ought to be nuked) than native. It's not possible atm,
      * since the DPY connect/init happens during the GetDriverNames.
@@ -687,9 +683,6 @@ static VAStatus va_new_opendriver(VADisplay dpy)
         /* Print and error yet continue, as per the above ordering note */
         va_errorMessage(dpy, "vaGetDriverNames() failed with %s\n", vaErrorStr(vaStatus));
         num_drivers = 0;
-    } else if (num_drivers > ARRAY_SIZE(drivers)) {
-        va_errorMessage(dpy, "DRIVER BUG: vaGetDriverNames() provides too many drivers\n");
-        num_drivers = ARRAY_SIZE(drivers);
     }
 
     ctx = CTX(dpy);
@@ -1437,14 +1430,43 @@ VAStatus vaMapBuffer(
 )
 {
     VADriverContextP ctx;
-    VAStatus va_status;
+    VAStatus va_status = VA_STATUS_SUCCESS;
 
     CHECK_DISPLAY(dpy);
     ctx = CTX(dpy);
 
-    va_status = ctx->vtable->vaMapBuffer(ctx, buf_id, pbuf);
+    if (ctx->vtable->vaMapBuffer2) {
+        va_status = ctx->vtable->vaMapBuffer2(ctx, buf_id, pbuf, VA_MAPBUFFER_FLAG_DEFAULT);
+    } else if (ctx->vtable->vaMapBuffer) {
+        va_status = ctx->vtable->vaMapBuffer(ctx, buf_id, pbuf);
+    }
 
-    VA_TRACE_ALL(va_TraceMapBuffer, dpy, buf_id, pbuf);
+    VA_TRACE_ALL(va_TraceMapBuffer, dpy, buf_id, pbuf, VA_MAPBUFFER_FLAG_DEFAULT);
+    VA_TRACE_RET(dpy, va_status);
+
+    return va_status;
+}
+
+VAStatus vaMapBuffer2(
+    VADisplay dpy,
+    VABufferID buf_id,  /* in */
+    void **pbuf,    /* out */
+    uint32_t flags      /*in */
+)
+{
+    VADriverContextP ctx;
+    VAStatus va_status = VA_STATUS_SUCCESS;
+
+    CHECK_DISPLAY(dpy);
+    ctx = CTX(dpy);
+
+    if (ctx->vtable->vaMapBuffer2) {
+        va_status = ctx->vtable->vaMapBuffer2(ctx, buf_id, pbuf, flags);
+    } else if (ctx->vtable->vaMapBuffer) {
+        va_status = ctx->vtable->vaMapBuffer(ctx, buf_id, pbuf);
+    }
+
+    VA_TRACE_ALL(va_TraceMapBuffer, dpy, buf_id, pbuf, flags);
     VA_TRACE_RET(dpy, va_status);
 
     return va_status;

@@ -1,5 +1,8 @@
 name: windows
 
+permissions:
+  contents: read
+
 on: [push, pull_request]
 
 jobs:
@@ -7,9 +10,9 @@ jobs:
     runs-on: windows-2022
     steps:
     - name: 'Checkout'
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     - name: 'Setup Python'
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.x'
     - name: 'Install Meson'
@@ -24,6 +27,27 @@ jobs:
     - name: 'Install'
       run: meson install -C _build
 
+  windows-msvc-debug:
+    runs-on: windows-2022
+    steps:
+    - name: 'Checkout'
+      uses: actions/checkout@v4
+    - name: 'Setup Python'
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+    - name: 'Install Meson'
+      run: pip install meson
+    - name: 'Enter DevShell'
+      run: '.github\workflows\EnterDevShell.ps1 ${{ inputs.architecture }}'
+      shell: pwsh
+    - name: 'Configure with meson'
+      run: meson setup _build -D werror=true -D buildtype=debug
+    - name: 'Build'
+      run: meson compile -C _build
+    - name: 'Install'
+      run: meson install -C _build
+
   windows-mingw:
     runs-on: windows-2022
     env:
@@ -33,7 +57,7 @@ jobs:
         shell: msys2 {0}
     steps:
     - name: 'Checkout'
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     - name: 'Setup MSYS2'
       uses: msys2/setup-msys2@v2
       with:
